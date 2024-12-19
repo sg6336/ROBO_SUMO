@@ -15,63 +15,71 @@ const int s2 = 7;
 const int s3 = 8;
 const int sig = 10;
 
-const int multiplexerSensorsAmount = 8;
+const int multiplexerSensorsAmount = 12;
 
 //int *g_sensorData = calloc(multiplexerSensorsAmount, sizeof(int));
-int g_sensorData[] = {0, 0, 0, 0, 0, 0, 0, 0};
+int g_sensorData[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 byte inputData = 0;
 byte inputDataOld = 0;
 
 byte inChar = 0;
 
-int motorSignals[] = { 85, 170, 105, 150, 0};
+int motorSignals[] = { 85, 170, 105, 150, 95, 65, 0};
 
 enum Direction
 {
-  Forward, Backward, Right, Left, None
+  Forward, Backward, Right, Left, LeftForward, RightForward, None, max_directions
 };
 
 Direction currDirection = None;
+Direction prevDirection = None;
 
 int oldTimeForMovingCenter = 0;
-int timeToCenter = 700;
+int startTimeRandomDirection = 0;
+int timeToCenter = 420;
+int timeToChangeRandomDirection = 200;
+
 bool isMovingToCenter = false;
+bool isNotShoulChangeDirectionRandomly = true;
 bool isNearLine = false;
 
-void loop() {
-  if (Serial.available()) {
-    inChar = (byte)Serial.read();
-    Serial.print("Bin: ");
-    printBinaryWithLeadingZeros(inChar);
-    //sendToShiftRegister(inChar);  // Надсилаємо дані до 74hc595
-    inChar = 0;
-    Serial.write(g_sensorData[4]);
-    Serial.write(g_sensorData[5]);
-    Serial.write(g_sensorData[6]);
-    Serial.write(g_sensorData[7]);
-    
-  }
+void loop()
+{
+  // if (Serial.available()) 
+  // {
+  //   inChar = (byte)Serial.read();
+  //   Serial.print("Bin: ");
+  //   printBinaryWithLeadingZeros(inChar);
+  //   sendToShiftRegister(inChar);  // Надсилаємо дані до 74hc595
+  //   inChar = 0;
+  //   // Serial.write(g_sensorData[4]);
+  //   // Serial.write(g_sensorData[5]);
+  //   // Serial.write(g_sensorData[6]);
+  //   // Serial.write(g_sensorData[7]);
+  // }
   // Зчитування даних із мікросхеми 74hc165
-  inputData = readShiftRegister();
+  // inputData = readShiftRegister();
   
-  if (inputData != inputDataOld) {
-    inputDataOld = inputData;
+  // if (inputData != inputDataOld) {
+  //   inputDataOld = inputData;
 
-    //sendToShiftRegister(inputData);  // Надсилаємо дані до 74hc595
+  //   //sendToShiftRegister(inputData);  // Надсилаємо дані до 74hc595
     
-    // Виведення даних у серійний монітор у двійковому вигляді
-    Serial.print("Data: ");
-    //Serial.println(inputData, BIN);
-    //printBinaryWithLeadingZeros(inputData);
+  //   // Виведення даних у серійний монітор у двійковому вигляді
+  //   Serial.print("Data: ");
+  //   //Serial.println(inputData, BIN);
+  //   //printBinaryWithLeadingZeros(inputData);
 
-    //delay(500); // Затримка для зручності перегляду
-  } 
+  //   //delay(500); // Затримка для зручності перегляду
+  // } 
   //delay(2000);
   //sendToShiftRegister(motorSignals[Forward]);
   
   readMultiplexer(g_sensorData);
   move(g_sensorData);
+  //delay(400);
+  //sendToShiftRegister(motorSignals[Test]);
 }
 
 byte readShiftRegister() {
@@ -120,7 +128,7 @@ void sendToShiftRegister(byte data) {
 // Функція для читання сенсорів з мультиплексора
 void readMultiplexer(int *sensorData)
 {
-  for (int i = 0; i < 8; ++i)
+  for (int i = 0; i < multiplexerSensorsAmount; ++i)
   {
       setPins(i);
       int data = digitalRead(sig);
@@ -148,13 +156,14 @@ void move(int *sensorData)
   {
     proccessUpperSensors(sensorData);
   }
-  delay(400);
+  //delay(100);
 }
 
 void updateStateNearLine()
 {
   isNearLine = true;
   isMovingToCenter = false;
+  isNotShoulChangeDirectionRandomly = false;
 }
 
 void proccessBottomSensors(int *sensorData)
@@ -163,28 +172,28 @@ void proccessBottomSensors(int *sensorData)
   {
     updateStateNearLine();
 
-    Serial.println("Backward From Bottom");
+    //Serial.println("Backward From Bottom");
     sendToShiftRegister(motorSignals[Backward]);
   } 
   if (sensorData[1])
   {
     updateStateNearLine();
 
-    Serial.println("Forward From Bottom");
+    //Serial.println("Forward From Bottom");
     sendToShiftRegister(motorSignals[Forward]);
   }
   if (sensorData[2])
   {
     updateStateNearLine();
 
-    Serial.println("Left From Bottom");
+    //Serial.println("Left From Bottom");
     sendToShiftRegister(motorSignals[Left]);
   }
   if (sensorData[3])
   {
     updateStateNearLine();
 
-    Serial.println("Right From Bottom");
+    //Serial.println("Right From Bottom");
     sendToShiftRegister(motorSignals[Right]);
   }
   if (!sensorData[0] && !sensorData[1] && !sensorData[2] && !sensorData[3])
@@ -194,18 +203,18 @@ void proccessBottomSensors(int *sensorData)
       oldTimeForMovingCenter = millis();
       isMovingToCenter = true;
     } else {
-      Serial.println("Moving to center");
+      //Serial.println("Moving to center");
       int currTime = millis();
       if( (currTime - oldTimeForMovingCenter) > timeToCenter)
       {
-        Serial.println("We are near to center");
+        //Serial.println("We are near to center");
         sendToShiftRegister(motorSignals[None]);
         isMovingToCenter = false;
         isNearLine = false;
       }
     }
-    Serial.println("None From Bottom");
-    sendToShiftRegister(motorSignals[None]);
+    //Serial.println("None From Bottom");
+    //sendToShiftRegister(motorSignals[None]);
   }
 }
 
@@ -213,27 +222,79 @@ void proccessUpperSensors(int *sensorData)
 {
   if (!sensorData[4])
   {
-    Serial.println("Forward From Upper");
+    //isNotShoulChangeDirectionRandomly = true;
+    //Serial.println("Forward From Upper");
     sendToShiftRegister(motorSignals[Forward]);
   }
   if (!sensorData[5])
   {
-    Serial.println("Backward From Upper");
+    //isNotShoulChangeDirectionRandomly = true;
+    //Serial.println("Backward From Upper");
     sendToShiftRegister(motorSignals[Backward]);
   }
   if (!sensorData[6])
   {
-    Serial.println("Right From Upper");
+    //isNotShoulChangeDirectionRandomly = true;
+    //Serial.println("Right From Upper");
     sendToShiftRegister(motorSignals[Right]);
   }
   if (!sensorData[7])
   {
-    Serial.println("Left From Upper");
+    //isNotShoulChangeDirectionRandomly = true;
+    //Serial.println("Left From Upper");
     sendToShiftRegister(motorSignals[Left]);
   }
-  if(sensorData[4] && sensorData[5] && sensorData[6] && sensorData[7])
+  if (!sensorData[8])
   {
-    Serial.println("None From Upper");
-    sendToShiftRegister(motorSignals[None]);
+    //isNotShoulChangeDirectionRandomly = true;
+    //Serial.println("Backward");
+    sendToShiftRegister(motorSignals[Backward]);
+  }
+  if (!sensorData[9])
+  {
+    //isNotShoulChangeDirectionRandomly = true;
+    //Serial.println("Backward");
+    sendToShiftRegister(motorSignals[Backward]);
+  }
+  if (!sensorData[10])
+  {
+    //isNotShoulChangeDirectionRandomly = true;
+    //Serial.println("Forward");
+    sendToShiftRegister(motorSignals[Forward]);
+  }
+  if (!sensorData[11])
+  {
+    //isNotShoulChangeDirectionRandomly = true;
+    //Serial.println("Forward");
+    sendToShiftRegister(motorSignals[Forward]);
+  }
+  if(sensorData[4] && sensorData[5] && sensorData[6] && sensorData[7] && sensorData[8] && sensorData[9] && sensorData[10] && sensorData[11])
+  {
+    //Serial.println("None From Upper");
+    // currDirection = getRandDirection();
+    // sendToShiftRegister(motorSignals[currDirection]);
+
+    // if(!isNotShoulChangeDirectionRandomly)
+    // {
+    //   startTimeRandomDirection = millis();
+    //   isNotShoulChangeDirectionRandomly = true;
+    //   sendToShiftRegister(motorSignals[getRandDirection()]);
+    // } else {
+    //   //Serial.println("Moving to center");
+    //   int currTime = millis();
+    //   if( (currTime - startTimeRandomDirection) > timeToChangeRandomDirection)
+    //   {
+    //     //Serial.println("We are near to center");
+    //     sendToShiftRegister(motorSignals[getRandDirection()]);
+    //     isNotShoulChangeDirectionRandomly = false;
+    //   }
+    // }
+    //Serial.println("None");
+    //sendToShiftRegister(motorSignals[None]);
   }
 }
+
+// void int getRandDirection()
+// {
+//   return rand(0, max_directions - 1);
+// }

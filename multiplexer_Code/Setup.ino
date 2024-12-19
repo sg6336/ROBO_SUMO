@@ -27,4 +27,7 @@ void setup() {
   Serial.begin(9600);  // Для виводу даних у серійний монітор
 
   sendToShiftRegister(motorSignals[None]);
+  delay(100);
+  sendToShiftRegister(motorSignals[None]);
+  delay(100);
 }
